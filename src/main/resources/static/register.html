@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sign up &mdash; WebAuthn Demo</title>
+    <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+    <header>
+        <a class="brand" href="/">🔐 WebAuthn Demo</a>
+        <nav><a href="/login.html">Sign in</a></nav>
+    </header>
+    <main>
+        <div class="card">
+            <h1>Create an account</h1>
+            <p class="subtitle">Your device will create a passkey instead of a password.</p>
+
+            <form id="registerForm">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" autocomplete="username" required />
+
+                <label for="displayName">Display name</label>
+                <input type="text" id="displayName" name="displayName" autocomplete="name" placeholder="Optional" />
+
+                <button type="submit" class="primary" id="submitBtn">Create passkey &amp; sign up</button>
+            </form>
+
+            <div id="msg" class="msg"></div>
+            <div class="foot-link">Already have an account? <a href="/login.html">Sign in</a></div>
+        </div>
+    </main>
+    <script src="/js/webauthn.js"></script>
+    <script>
+        const form = document.getElementById("registerForm");
+        const msg = document.getElementById("msg");
+        const submitBtn = document.getElementById("submitBtn");
+
+        function showMessage(text, type) {
+            msg.textContent = text;
+            msg.className = "msg " + type;
+        }
+
+        form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const username = document.getElementById("username").value.trim();
+            const displayName = document.getElementById("displayName").value.trim();
+            if (!username) return;
+
+            submitBtn.disabled = true;
+            showMessage("Follow your browser/device prompt to create a passkey…", "success");
+            try {
+                await registerPasskey(username, displayName);
+                showMessage("Account created! Redirecting…", "success");
+                setTimeout(() => (location.href = "/settings.html"), 600);
+            } catch (err) {
+                showMessage(err.message || "Registration failed.", "error");
+                submitBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WebAuthn Demo</title>
+    <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+    <header>
+        <a class="brand" href="/">🔐 WebAuthn Demo</a>
+        <nav id="nav"></nav>
+    </header>
+    <main>
+        <div class="card">
+            <h1>Passkey demo</h1>
+            <p class="subtitle">
+                A small Java (Spring Boot) relying-party server showing WebAuthn
+                registration, login, and passkey management &mdash; no passwords.
+            </p>
+            <a href="/register.html"><button class="primary">Create an account</button></a>
+            <a href="/login.html"><button class="secondary">Sign in</button></a>
+        </div>
+    </main>
+    <script src="/js/webauthn.js"></script>
+    <script>
+        (async () => {
+            const nav = document.getElementById("nav");
+            const user = await getCurrentUser();
+            if (user) {
+                nav.innerHTML = `<a href="/settings.html">Settings</a><button id="logoutBtn">Log out</button>`;
+                document.getElementById("logoutBtn").addEventListener("click", async () => {
+                    await logout();
+                    location.reload();
+                });
+            } else {
+                nav.innerHTML = `<a href="/login.html">Sign in</a><a href="/register.html">Sign up</a>`;
+            }
+        })();
+    </script>
+</body>
+</html>

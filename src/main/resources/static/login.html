@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sign in &mdash; WebAuthn Demo</title>
+    <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+    <header>
+        <a class="brand" href="/">🔐 WebAuthn Demo</a>
+        <nav><a href="/register.html">Sign up</a></nav>
+    </header>
+    <main>
+        <div class="card">
+            <h1>Sign in</h1>
+            <p class="subtitle">Use your passkey to sign in &mdash; no password needed.</p>
+
+            <form id="loginForm">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" autocomplete="username webauthn" placeholder="Optional if using a discoverable passkey" />
+
+                <button type="submit" class="primary" id="submitBtn">Sign in with passkey</button>
+            </form>
+
+            <div id="msg" class="msg"></div>
+            <div class="foot-link">No account yet? <a href="/register.html">Create one</a></div>
+        </div>
+    </main>
+    <script src="/js/webauthn.js"></script>
+    <script>
+        const form = document.getElementById("loginForm");
+        const msg = document.getElementById("msg");
+        const submitBtn = document.getElementById("submitBtn");
+
+        function showMessage(text, type) {
+            msg.textContent = text;
+            msg.className = "msg " + type;
+        }
+
+        form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const username = document.getElementById("username").value.trim();
+
+            submitBtn.disabled = true;
+            showMessage("Follow your browser/device prompt to sign in…", "success");
+            try {
+                await loginWithPasskey(username);
+                showMessage("Signed in! Redirecting…", "success");
+                setTimeout(() => (location.href = "/settings.html"), 500);
+            } catch (err) {
+                showMessage(err.message || "Sign-in failed.", "error");
+                submitBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

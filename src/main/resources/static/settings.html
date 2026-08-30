@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Settings &mdash; WebAuthn Demo</title>
+    <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+    <header>
+        <a class="brand" href="/">🔐 WebAuthn Demo</a>
+        <nav>
+            <button id="logoutBtn">Log out</button>
+        </nav>
+    </header>
+    <main>
+        <div class="card wide" id="app" style="display:none">
+            <h1>Account settings</h1>
+            <p class="subtitle">Signed in as <strong id="whoami"></strong></p>
+
+            <div class="section-title">Profile</div>
+            <form id="profileForm">
+                <label for="displayName">Display name</label>
+                <input type="text" id="displayName" name="displayName" required />
+                <button type="submit" class="primary">Save display name</button>
+            </form>
+            <div id="profileMsg" class="msg"></div>
+
+            <div class="section-title">Passkeys</div>
+            <ul class="cred-list" id="credList"></ul>
+            <button id="addPasskeyBtn" class="secondary">+ Add another passkey</button>
+            <div id="credMsg" class="msg"></div>
+        </div>
+        <div class="card" id="loggedOut" style="display:none">
+            <h1>You're signed out</h1>
+            <p class="subtitle">Sign in to manage your account.</p>
+            <a href="/login.html"><button class="primary">Sign in</button></a>
+        </div>
+    </main>
+    <script src="/js/webauthn.js"></script>
+    <script>
+        const app = document.getElementById("app");
+        const loggedOutView = document.getElementById("loggedOut");
+        const whoami = document.getElementById("whoami");
+        const displayNameInput = document.getElementById("displayName");
+        const profileMsg = document.getElementById("profileMsg");
+        const credList = document.getElementById("credList");
+        const credMsg = document.getElementById("credMsg");
+        let currentUsername = null;
+
+        function show(el, text, type) {
+            el.textContent = text;
+            el.className = "msg " + type;
+            if (text) setTimeout(() => (el.className = "msg"), 4000);
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement("div");
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        async function loadCredentials() {
+            const res = await fetch("/api/settings/credentials", { credentials: "same-origin" });
+            if (!res.ok) return;
+            const creds = await res.json();
+            credList.innerHTML = "";
+            for (const c of creds) {
+                const li = document.createElement("li");
+                li.className = "cred-item";
+                const created = new Date(c.createdAt).toLocaleString();
+                li.innerHTML = `
+                    <div class="cred-info">
+                        <input class="cred-name" data-id="${c.id}" value="${escapeHtml(c.nickname)}" />
+                        <div class="cred-meta">Added ${created} &middot; sig. count ${c.signatureCount}</div>
+                    </div>
+                    <button class="icon-btn" data-id="${c.id}" title="Remove passkey">Remove</button>
+                `;
+                credList.appendChild(li);
+            }
+
+            credList.querySelectorAll(".cred-name").forEach((input) => {
+                input.addEventListener("change", async () => {
+                    try {
+                        await fetch(`/api/settings/credentials/${encodeURIComponent(input.dataset.id)}`, {
+                            method: "PUT",
+                            headers: { "Content-Type": "application/json" },
+                            credentials: "same-origin",
+                            body: JSON.stringify({ nickname: input.value.trim() }),
+                        });
+                        show(credMsg, "Renamed.", "success");
+                    } catch (e) {
+                        show(credMsg, "Could not rename passkey.", "error");
+                    }
+                });
+            });
+
+            credList.querySelectorAll(".icon-btn").forEach((btn) => {
+                btn.addEventListener("click", async () => {
+                    if (!confirm("Remove this passkey? You won't be able to sign in with it anymore.")) return;
+                    const res = await fetch(`/api/settings/credentials/${encodeURIComponent(btn.dataset.id)}`, {
+                        method: "DELETE",
+                        credentials: "same-origin",
+                    });
+                    if (res.ok) {
+                        show(credMsg, "Passkey removed.", "success");
+                        loadCredentials();
+                    } else {
+                        const data = await res.json().catch(() => ({}));
+                        show(credMsg, data.error || "Could not remove passkey.", "error");
+                    }
+                });
+            });
+        }
+
+        document.getElementById("profileForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            try {
+                const res = await fetch("/api/settings/profile", {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "same-origin",
+                    body: JSON.stringify({ displayName: displayNameInput.value.trim() }),
+                });
+                if (!res.ok) throw new Error("Save failed");
+                show(profileMsg, "Saved.", "success");
+            } catch (e) {
+                show(profileMsg, "Could not save display name.", "error");
+            }
+        });
+
+        document.getElementById("addPasskeyBtn").addEventListener("click", async () => {
+            show(credMsg, "Follow your browser/device prompt…", "success");
+            try {
+                await registerPasskey(currentUsername, displayNameInput.value.trim());
+                show(credMsg, "New passkey added.", "success");
+                loadCredentials();
+            } catch (err) {
+                show(credMsg, err.message || "Could not add passkey.", "error");
+            }
+        });
+
+        document.getElementById("logoutBtn").addEventListener("click", async () => {
+            await logout();
+            location.href = "/";
+        });
+
+        (async () => {
+            const user = await getCurrentUser();
+            if (!user) {
+                loggedOutView.style.display = "block";
+                return;
+            }
+            currentUsername = user.username;
+            whoami.textContent = user.username;
+            displayNameInput.value = user.displayName;
+            app.style.display = "block";
+            loadCredentials();
+        })();
+    </script>
+</body>
+</html>
